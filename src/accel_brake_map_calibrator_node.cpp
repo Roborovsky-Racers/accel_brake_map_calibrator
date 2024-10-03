@@ -509,8 +509,14 @@ void AccelBrakeMapCalibrator::callbackActuationStatus(
     getNearestTimeDataFromVec(accel_pedal_ptr_, pedal_to_accel_delay_, accel_pedal_vec_);
 
   // get brake data
+#if 1 // brake_pedalの値が常に0より大きくなってしまっており、accelとbrakeが同時に入っていると判定されるとキャリブレーションができないため、brake_pedalの値を0に固定
+  brake_pedal_ptr_ =
+    std::make_shared<DataStamped>(0.0, rclcpp::Time(msg->header.stamp));
+#else
   brake_pedal_ptr_ =
     std::make_shared<DataStamped>(msg->status.brake_status, rclcpp::Time(msg->header.stamp));
+#endif
+
   if (!brake_pedal_vec_.empty()) {
     const auto past_brake_ptr =
       getNearestTimeDataFromVec(brake_pedal_ptr_, dif_pedal_time_, brake_pedal_vec_);
@@ -522,8 +528,13 @@ void AccelBrakeMapCalibrator::callbackActuationStatus(
   }
   debug_values_.data.at(CURRENT_BRAKE_PEDAL) = brake_pedal_ptr_->data;
   pushDataToVec(brake_pedal_ptr_, pedal_vec_max_size_, &brake_pedal_vec_);
+
   delayed_brake_pedal_ptr_ =
     getNearestTimeDataFromVec(brake_pedal_ptr_, pedal_to_accel_delay_, brake_pedal_vec_);
+
+  // debug
+  // const double target_time = rclcpp::Time(msg->header.stamp).seconds() - pedal_to_accel_delay_;
+  // RCLCPP_WARN(get_logger(), "target_time: %lf, brake_pedal_vec_ size = %zu, delayed_brake_pedal: %lf",  target_time, brake_pedal_vec_.size(), delayed_brake_pedal_ptr_->data);
 }
 
 bool AccelBrakeMapCalibrator::callbackUpdateMapService(
@@ -797,7 +808,8 @@ void AccelBrakeMapCalibrator::executeUpdate(
   const double map_acc = accel_mode
                            ? update_accel_map_value_.at(accel_pedal_index).at(accel_vel_index)
                            : update_brake_map_value_.at(brake_pedal_index).at(brake_vel_index);
-  RCLCPP_DEBUG_STREAM(get_logger(), "measured_acc: " << measured_acc << ", map_acc: " << map_acc);
+  // RCLCPP_DEBUG_STREAM(get_logger(), "measured_acc: " << measured_acc << ", map_acc: " << map_acc);
+  RCLCPP_DEBUG_STREAM(get_logger(), "accel_mode: " << accel_mode << ", accel_pedal_index: " << accel_pedal_index << ", accel_vel_index: " << accel_vel_index << ", brake_pedal_index: " << brake_pedal_index << ", brake_vel_index: " << brake_vel_index << ", measured_acc: " << measured_acc << ", map_acc: " << map_acc);
 
   if (update_method_ == UPDATE_METHOD::UPDATE_OFFSET_EACH_CELL) {
     updateEachValOffset(

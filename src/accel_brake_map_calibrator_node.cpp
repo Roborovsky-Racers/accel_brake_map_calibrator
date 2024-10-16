@@ -346,6 +346,7 @@ void AccelBrakeMapCalibrator::timerCallback()
   if (twist_ptr_->twist.linear.x < velocity_min_threshold_) {
     // too low speed ( or backward velocity)
     too_low_speed_count_++;
+    RCLCPP_WARN(get_logger(), "too low speed!: %lf", twist_ptr_->twist.linear.x);
     return;
   }
 
@@ -356,6 +357,7 @@ void AccelBrakeMapCalibrator::timerCallback()
   if (std::fabs(pitch_) > max_pitch_threshold_) {
     // too large pitch
     too_large_pitch_count_++;
+    RCLCPP_WARN(get_logger(), "too large pitch!: %lf", pitch_);
     return;
   }
 
@@ -363,6 +365,7 @@ void AccelBrakeMapCalibrator::timerCallback()
   if (std::fabs(steer_ptr_->steering_tire_angle) > max_steer_threshold_) {
     // too large steer
     too_large_steer_count_++;
+    RCLCPP_WARN(get_logger(), "too large steer!: %lf", steer_ptr_->steering_tire_angle);
     return;
   }
 
@@ -370,6 +373,7 @@ void AccelBrakeMapCalibrator::timerCallback()
   if (std::fabs(jerk_) > max_jerk_threshold_) {
     // too large jerk
     too_large_jerk_count_++;
+    RCLCPP_WARN(get_logger(), "too large jerk!: %lf", jerk_);
     return;
   }
 
@@ -382,6 +386,7 @@ void AccelBrakeMapCalibrator::timerCallback()
       get_logger(), *get_clock(), 5000,
       "invalid pedal value (Both of accel output and brake output area not zero. )");
     invalid_acc_brake_count_++;
+    RCLCPP_WARN(get_logger(), "invalid pedal value!: %lf, %lf", delayed_accel_pedal_ptr_->data, delayed_brake_pedal_ptr_->data);
     return;
   }
 
@@ -391,6 +396,7 @@ void AccelBrakeMapCalibrator::timerCallback()
     std::fabs(brake_pedal_speed_) > pedal_velocity_thresh_) {
     // too large pedal speed
     too_large_pedal_spd_count_++;
+    RCLCPP_WARN(get_logger(), "too large pedal speed!: %lf, %lf", accel_pedal_speed_, brake_pedal_speed_);
     return;
   }
 
@@ -399,6 +405,7 @@ void AccelBrakeMapCalibrator::timerCallback()
     update_success_count_++;
     debug_values_.data.at(SUCCESS_TO_UPDATE) = true;
     update_success_ = true;
+    RCLCPP_INFO(get_logger(), "update success!: %d", update_success_count_);
   } else {
     update_fail_count_++;
   }
@@ -509,7 +516,7 @@ void AccelBrakeMapCalibrator::callbackActuationStatus(
     getNearestTimeDataFromVec(accel_pedal_ptr_, pedal_to_accel_delay_, accel_pedal_vec_);
 
   // get brake data
-#if 1 // brake_pedalの値が常に0より大きくなってしまっており、accelとbrakeが同時に入っていると判定されるとキャリブレーションができないため、brake_pedalの値を0に固定
+#if 0 // brake_pedalの値が常に0より大きくなってしまっており、accelとbrakeが同時に入っていると判定されるとキャリブレーションができないため、brake_pedalの値を0に固定
   brake_pedal_ptr_ =
     std::make_shared<DataStamped>(0.0, rclcpp::Time(msg->header.stamp));
 #else
@@ -744,6 +751,7 @@ bool AccelBrakeMapCalibrator::updateAccelBrakeMap()
                     accel_pedal_index_, delayed_accel_pedal_ptr_->data, pedal_diff_threshold_,
                     &accel_pedal_index)) {
     // not match accel pedal output to pedal value in index
+    RCLCPP_WARN(get_logger(), "not match accel pedal output to pedal value in index!: %lf, %d", delayed_accel_pedal_ptr_->data, accel_pedal_index);
     return false;
   }
 
@@ -752,6 +760,7 @@ bool AccelBrakeMapCalibrator::updateAccelBrakeMap()
                      brake_pedal_index_, delayed_brake_pedal_ptr_->data, pedal_diff_threshold_,
                      &brake_pedal_index)) {
     // not match accel pedal output to pedal value in index
+    RCLCPP_WARN(get_logger(), "not match brake pedal output to pedal value in index!: %lf, %d", delayed_brake_pedal_ptr_->data, brake_pedal_index);
     return false;
   }
 
@@ -760,6 +769,7 @@ bool AccelBrakeMapCalibrator::updateAccelBrakeMap()
     !indexValueSearch(
       accel_vel_index_, twist_ptr_->twist.linear.x, velocity_diff_threshold_, &accel_vel_index)) {
     // not match current velocity to velocity value in index
+    RCLCPP_WARN(get_logger(), "not match current velocity to velocity value in index!: %lf, %d", twist_ptr_->twist.linear.x, accel_vel_index);
     return false;
   }
 
@@ -768,6 +778,7 @@ bool AccelBrakeMapCalibrator::updateAccelBrakeMap()
     !indexValueSearch(
       brake_vel_index_, twist_ptr_->twist.linear.x, velocity_diff_threshold_, &brake_vel_index)) {
     // not match current velocity to velocity value in index
+    RCLCPP_WARN(get_logger(), "not match current velocity to velocity value in index!: %lf, %d", twist_ptr_->twist.linear.x, brake_vel_index);
     return false;
   }
 
@@ -804,12 +815,14 @@ void AccelBrakeMapCalibrator::executeUpdate(
   const bool accel_mode, const int accel_pedal_index, const int accel_vel_index,
   const int brake_pedal_index, const int brake_vel_index)
 {
+  RCLCPP_DEBUG(get_logger(), "executeUpdate. accel_mode: %d, accel_pedal_index: %d, accel_vel_index: %d, brake_pedal_index: %d, brake_vel_index: %d", accel_mode, accel_pedal_index, accel_vel_index, brake_pedal_index, brake_vel_index);
+
   const double measured_acc = acceleration_ - getPitchCompensatedAcceleration();
   const double map_acc = accel_mode
                            ? update_accel_map_value_.at(accel_pedal_index).at(accel_vel_index)
                            : update_brake_map_value_.at(brake_pedal_index).at(brake_vel_index);
-  // RCLCPP_DEBUG_STREAM(get_logger(), "measured_acc: " << measured_acc << ", map_acc: " << map_acc);
-  RCLCPP_DEBUG_STREAM(get_logger(), "accel_mode: " << accel_mode << ", accel_pedal_index: " << accel_pedal_index << ", accel_vel_index: " << accel_vel_index << ", brake_pedal_index: " << brake_pedal_index << ", brake_vel_index: " << brake_vel_index << ", measured_acc: " << measured_acc << ", map_acc: " << map_acc);
+  RCLCPP_DEBUG_STREAM(get_logger(), "measured_acc: " << measured_acc << ", map_acc: " << map_acc);
+  // RCLCPP_DEBUG_STREAM(get_logger(), "accel_mode: " << accel_mode << ", accel_pedal_index: " << accel_pedal_index << ", accel_vel_index: " << accel_vel_index << ", brake_pedal_index: " << brake_pedal_index << ", brake_vel_index: " << brake_vel_index << ", measured_acc: " << measured_acc << ", map_acc: " << map_acc);
 
   if (update_method_ == UPDATE_METHOD::UPDATE_OFFSET_EACH_CELL) {
     updateEachValOffset(
@@ -823,6 +836,8 @@ void AccelBrakeMapCalibrator::executeUpdate(
       measured_acc);
   }
 
+  RCLCPP_DEBUG(get_logger(), "after update");
+
   // add accel data to map
   accel_mode ? map_value_data_.at(getUnifiedIndexFromAccelBrakeIndex(true, accel_pedal_index))
                  .at(accel_vel_index)
@@ -830,6 +845,8 @@ void AccelBrakeMapCalibrator::executeUpdate(
              : map_value_data_.at(getUnifiedIndexFromAccelBrakeIndex(false, brake_pedal_index))
                  .at(brake_vel_index)
                  .emplace_back(measured_acc);
+
+  RCLCPP_DEBUG(get_logger(), "after add accel data to map");
 }
 
 bool AccelBrakeMapCalibrator::updateFourCellAroundOffset(

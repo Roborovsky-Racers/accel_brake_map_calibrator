@@ -2,17 +2,18 @@
   ros__parameters:
     update_hz: 10.0
     initial_covariance: 0.05
-    velocity_min_threshold: 0.1
+    velocity_min_threshold: 0.02
     velocity_diff_threshold: 0.556
     pedal_diff_threshold: 0.03
-    max_steer_threshold: 0.2
+    # max_steer_threshold: 0.2
+    max_steer_threshold: 0.5
     max_pitch_threshold: 0.02
-    max_jerk_threshold: 0.7
-    pedal_velocity_thresh: 0.15
-    pedal_to_accel_delay: 0.3
-    # max_jerk_threshold: 1.5
-    # pedal_velocity_thresh: 0.3
-    # pedal_to_accel_delay: 0.1
+    # max_jerk_threshold: 0.7
+    # pedal_velocity_thresh: 0.15
+    # pedal_to_accel_delay: 0.3
+    max_jerk_threshold: 3.0
+    pedal_velocity_thresh: 3.0
+    pedal_to_accel_delay: 0.1
     max_accel: 5.0
     min_accel: -5.0
     max_data_count: 100
